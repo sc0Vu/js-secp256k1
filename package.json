@@ -1,0 +1,36 @@
+{
+  "name": "js-keccak-tiny",
+  "version": "0.1.0",
+  "description": "Keccak tiny emscripten binding in javascript",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "tests": "tests"
+  },
+  "dependencies": {
+    "is-buffer": "^2.0.3"
+  },
+  "devDependencies": {
+    "jest": "^24.5.0",
+    "jest-runner-mocha": "^0.6.0",
+    "keccak": "^2.0.0"
+  },
+  "scripts": {
+    "test": "jest --config ./jest.config.js --detectOpenHandles"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sc0Vu/js-keccak-tiny.git"
+  },
+  "keywords": [
+    "keccak",
+    "keccak-tiny",
+    "cryptography"
+  ],
+  "author": "sc0vu <alk03073135@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sc0Vu/js-keccak-tiny/issues"
+  },
+  "homepage": "https://github.com/sc0Vu/js-keccak-tiny#readme"
+}
