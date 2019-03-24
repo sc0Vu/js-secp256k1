@@ -7,3 +7,6 @@ node_js:
   - "8"
   - "10"
   - "11"
+
+after_success:
+  - codecov --token=7cfd27d4-0b28-4038-86fb-219ecb5ac31a
