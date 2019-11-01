@@ -10,7 +10,7 @@ describe('Secp256k1BrowserTest', function () {
 
   beforeEach(async function () {
     const options = new firefox.Options()
-    // options.addArguments('-headless')
+    options.addArguments('-headless')
     driver = new Builder().forBrowser('firefox')
       .setFirefoxOptions(options).build()
   })
