@@ -1,0 +1,54 @@
+<html>
+  <head>
+    <title>Secp256k1 test</title>
+    <script src="./elliptic.min.js"></script>
+    <script src="../dist/browser-bundle.js"></script>
+  </head>
+  <body>
+    <script>
+      let success = true
+      SECP256K1()
+        .then(function (secp256k1) {
+          window.secp256k1 = secp256k1
+          var privkey = new Uint8Array([70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70])
+          var msg = new Uint8Array([218,245,167,121,174,151,47,151,33,151,48,61,123,87,71,70,199,239,131,234,218,192,242,121,26,210,61,185,46,76,142,83])
+          var sig1 = secp256k1.sign(msg, privkey)
+          var ec = new elliptic.ec('secp256k1')
+          var key = ec.keyFromPrivate(privkey)
+          var sig2 = key.sign(msg)
+          if (sig1 === false) {
+            throw new Error('cannot sign the message')
+          }
+          if (sig1.recovery !== sig2.recoveryParam) {
+            throw new Error('recovery params were not equal')
+          }
+          var r1 = sig1.signature.slice(0, 32)
+          var s1 = sig1.signature.slice(32)
+          var r2 = sig2.r.toArray()
+          var s2 = sig2.s.toArray()
+          if (r1.length !== r2.length || s1.length !== s2.length) {
+            throw new Error('wrong signature')
+          }
+          for (let i=0; i<r1.length; i++) {
+            if (r1[i] !== r2[i]) {
+              throw new Error('wrong signature')
+            }
+          }
+          for (let i=0; i<s1.length; i++) {
+            if (s1[i] !== s2[i]) {
+              throw new Error('wrong signature')
+            }
+          }
+        })
+        .catch(function (err) {
+          success = false
+        })
+        .then(function () {
+          if (success) {
+            document.title += ' succed'
+          }
+          secp256k1.destroy()
+        })
+    </script>
+  </body>
+</html>
