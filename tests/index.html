@@ -43,8 +43,25 @@
           if (secp256k1.verify(msg, sig1.signature, pubkey) !== true) {
             throw new Error('invalid signature')
           }
+          let sig = new Uint8Array(64)
+          for (let i=0; i<r1.length; i++) {
+            sig[i] = r2[i]
+          }
+          for (let i=0; i<s1.length; i++) {
+            sig[i+32] = s2[i]
+          }
+          let pubkey2 = secp256k1.recover(msg, sig, sig2.recoveryParam)
+          if (pubkey.length !== pubkey2.length) {
+            throw new Error('cannot recover public key')
+          }
+          for (let i=0; i<pubkey.length; i++) {
+            if (pubkey[i] !== pubkey2[i]) {
+              throw new Error('cannot recover public key')
+            }
+          }
         })
         .catch(function (err) {
+          console.log(err)
           success = false
         })
         .then(function () {

@@ -156,7 +156,7 @@ module.exports = function () {
           this.s._free(pubkey)
           return false
         }
-        let pb = new Buffer(64)
+        let pb = new Uint8Array(64)
         for (var i=0; i<64; i++) {
             var v = this.s.getValue(pubkey + i, 'i8')
             pb[i] = v
@@ -194,6 +194,52 @@ module.exports = function () {
         this.s._free(pubkey)
         this.s._free(msg)
         return isValid
+      }
+
+      secp256k1.recover = function (msg, sig, recid) {
+        return this._recover(Buffer.from(msg), Buffer.from(sig), recid)
+      }
+
+      secp256k1._recover = function (msgBuf, sigBuf, recid) {
+        if (isBuffer(msgBuf) !== true || msgBuf.length !== this.msgLen) {
+          return false
+        }
+        if (isBuffer(sigBuf) !== true || sigBuf.length !== 64) {
+          return false
+        }
+        if (typeof recid !== 'number' || recid > 1 || recid < 0) {
+          return false
+        }
+        let msg = this.s._malloc(this.msgLen)
+        let sigData = this.s._malloc(64)
+        let sig = this.s._malloc(64)
+        let pubkey = this.s._malloc(64)
+        this.s.HEAP8.set(msgBuf, msg)
+        this.s.HEAP8.set(sigBuf, sigData)
+        if (this.s._secp256k1_ecdsa_recoverable_signature_parse_compact(this.ctx, sig, sigData, recid) !== 1) {
+          this.s._free(msg)
+          this.s._free(sigData)
+          this.s._free(sig)
+          this.s._free(pubkey)
+          return false
+        }
+        if (this.s._secp256k1_ecdsa_recover(this.ctx, pubkey, sig, msg) !== 1) {
+          this.s._free(msg)
+          this.s._free(sigData)
+          this.s._free(sig)
+          this.s._free(pubkey)
+          return false
+        }
+        let pb = new Uint8Array(64)
+        for (var i=0; i<64; i++) {
+            var v = this.s.getValue(pubkey + i, 'i8')
+            pb[i] = v
+        }
+        this.s._free(msg)
+        this.s._free(sigData)
+        this.s._free(sig)
+        this.s._free(pubkey)
+        return pb
       }
 
       secp256k1.destroy = function () {

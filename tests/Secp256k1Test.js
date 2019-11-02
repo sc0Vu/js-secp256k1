@@ -22,11 +22,19 @@ describe('Secp256k1Test', function () {
   })
 
   it ('Should verify signature', function (done) {
-    let newSig = secp256k1.sign(msg, privkey)
+    let sig = secp256k1.sign(msg, privkey)
     let pubkey = secp256k1.privkeyToPubkey(privkey)
     let cpubkey = secp256k1.serializePubkey(pubkey, true)
-    assert(secp256k1.verify(msg, newSig.signature, pubkey))
-    assert(Secp256k1.verify(msg, newSig.signature, cpubkey))
+    assert(secp256k1.verify(msg, sig.signature, pubkey))
+    assert(Secp256k1.verify(msg, sig.signature, cpubkey))
+    done()
+  })
+
+  it ('Should recover public key', function (done) {
+    let sig = secp256k1.sign(msg, privkey)
+    let pubkey = secp256k1.privkeyToPubkey(privkey)
+    let cpubkey = secp256k1.recover(msg, sig.signature, sig.recovery)
+    assert(cpubkey.equals(pubkey))
     done()
   })
 })
