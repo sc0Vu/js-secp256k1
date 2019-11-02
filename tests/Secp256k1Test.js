@@ -20,4 +20,11 @@ describe('Secp256k1Test', function () {
     assert.equal(newSig.recovery, newSig2.recovery)
     done()
   })
+
+  it ('Should verify signature', function (done) {
+    let newSig = secp256k1.sign(msg, privkey)
+    let pubkey = secp256k1.privkeyToPubkey(privkey)
+    assert(secp256k1.verify(msg, newSig.signature, pubkey))
+    done()
+  })
 })

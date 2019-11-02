@@ -97,6 +97,68 @@ module.exports = function () {
         }
       }
 
+      secp256k1.privkeyToPubkey = function (privkey) {
+        return this._privkeyToPubkey(Buffer.from(privkey))
+      }
+
+      secp256k1._privkeyToPubkey = function (privkeyBuf) {
+        if (isBuffer(privkeyBuf) !== true || privkeyBuf.length !== this.msgLen) {
+          return false
+        }
+        // verify private key
+        let privkey = this.s._malloc(this.privkeyLen)
+        let pubkey = this.s._malloc(64)
+        this.s.HEAP8.set(privkeyBuf, privkey)
+        if (this.s._secp256k1_ec_seckey_verify(this.ctx, privkey) !== 1) {
+          this.s._free(privkey)
+          this.s._free(pubkey)
+          return false
+        }
+        if (this.s._secp256k1_ec_pubkey_create(this.ctx, pubkey, privkey) !== 1) {
+          this.s._free(privkey)
+          this.s._free(pubkey)
+          return false
+        }
+        let pb = new Buffer(64)
+        for (var i=0; i<64; i++) {
+            var v = this.s.getValue(pubkey + i, 'i8')
+            pb[i] = v
+        }
+        return pb
+      }
+
+      secp256k1.verify = function (msg, sig, pubkey) {
+        return this._verify(Buffer.from(msg), Buffer.from(sig), Buffer.from(pubkey))
+      }
+
+      secp256k1._verify = function (msgBuf, sigBuf, pubkeyBuf) {
+        if (isBuffer(msgBuf) !== true || msgBuf.length !== this.msgLen) {
+          return false
+        }
+        if (isBuffer(sigBuf) !== true || sigBuf.length !== (this.sigLen - 1)) {
+          return false
+        }
+        if (isBuffer(pubkeyBuf) !== true || pubkeyBuf.length !== 64) {
+          return false
+        }
+        let sigData = this.s._malloc(64)
+        let sig = this.s._malloc(64)
+        let pubkey = this.s._malloc(64)
+        let msg = this.s._malloc(32)
+        let isValid = false
+        this.s.HEAP8.set(sigBuf, sigData)
+        this.s.HEAP8.set(pubkeyBuf, pubkey)
+        this.s.HEAP8.set(msgBuf, msg)
+        if (this.s._secp256k1_ecdsa_signature_parse_compact(this.ctx, sig, sigData) === 1) {
+          isValid = this.s._secp256k1_ecdsa_verify(this.ctx, sig, msg, pubkey) === 1
+        }
+        this.s._free(sigData)
+        this.s._free(sig)
+        this.s._free(pubkey)
+        this.s._free(msg)
+        return isValid
+      }
+
       secp256k1.destroy = function () {
         this.s._secp256k1_context_destroy(this.ctx)
         // this.s = null

@@ -39,6 +39,10 @@
               throw new Error('wrong signature')
             }
           }
+          let pubkey = secp256k1.privkeyToPubkey(privkey)
+          if (secp256k1.verify(msg, sig1.signature, pubkey) !== true) {
+            throw new Error('invalid signature')
+          }
         })
         .catch(function (err) {
           success = false

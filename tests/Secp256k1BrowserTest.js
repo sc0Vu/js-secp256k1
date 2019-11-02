@@ -15,7 +15,7 @@ describe('Secp256k1BrowserTest', function () {
       .setFirefoxOptions(options).build()
   })
 
-  it ('Shoud hash message', async function () {
+  it ('Shoud hash/verify message', async function () {
     try {
       const url = `file://${path.join(__dirname, 'index.html')}`
       await driver.get(url)
