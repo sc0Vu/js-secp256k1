@@ -36,6 +36,14 @@ module.exports = function () {
         sigLen: {
           writable: false,
           value: 65
+        },
+        SECP256K1_EC_COMPRESSED: {
+          writable: false,
+          value: 258
+        },
+        SECP256K1_EC_UNCOMPRESSED: {
+          writable: false,
+          value: 2
         }
       })
 
@@ -95,6 +103,35 @@ module.exports = function () {
           signature: pe,
           recovery: recid
         }
+      }
+
+      secp256k1.serializePubkey = function (pubkey, compressed) {
+        return this._serializePubkey(Buffer.from(pubkey), compressed)
+      }
+
+      secp256k1._serializePubkey = function (pubkeyBuf, compressed) {
+        let pubkey = this.s._malloc(pubkeyBuf.length)
+        let outputLen = this.s._malloc(1)
+        let pubLen = (compressed) ? 33 : 65;
+        let spubkey = this.s._malloc(pubLen)
+        this.s.HEAP8.set(pubkeyBuf, pubkey)
+        this.s.HEAP8.set([pubkeyBuf.length], outputLen)
+        this.s.HEAP8.set([pubLen], outputLen)
+        if (this.s._secp256k1_ec_pubkey_serialize(this.ctx, spubkey, outputLen, pubkey, (compressed) ? this.SECP256K1_EC_COMPRESSED : this.SECP256K1_EC_UNCOMPRESSED) !== 1) {
+          this.s._free(pubkey)
+          this.s._free(outputLen)
+          this.s._free(spubkey)
+          return false
+        }
+        let pc = new Buffer(pubLen)
+        for (var i=0; i<pubLen; i++) {
+            var v = this.s.getValue(spubkey + i, 'i8')
+            pc[i] = v
+        }
+        this.s._free(pubkey)
+        this.s._free(outputLen)
+        this.s._free(spubkey)
+        return pc
       }
 
       secp256k1.privkeyToPubkey = function (privkey) {
