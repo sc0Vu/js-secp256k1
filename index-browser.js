@@ -33,9 +33,17 @@ module.exports = function () {
           writable: false,
           value: 32
         },
+        rawSigLen: {
+          writable: false,
+          value: 64
+        },
         sigLen: {
           writable: false,
           value: 65
+        },
+        pubkeyLen: {
+          writable: false,
+          value: 64
         },
         SECP256K1_EC_COMPRESSED: {
           writable: false,
@@ -46,6 +54,15 @@ module.exports = function () {
           value: 2
         }
       })
+
+      secp256k1.copyToBuffer = function (src, len) {
+        let out = new Uint8Array(len)
+        for (var i=0; i<len; i++) {
+          let v = this.s.getValue(src + i, 'i8')
+          out[i] = v
+        }
+        return out
+      }
 
       secp256k1.sign = function (msg, privkey) {
         return this._sign(Buffer.from(msg), Buffer.from(privkey))
@@ -89,11 +106,7 @@ module.exports = function () {
         }
         // set rec to last
         let recid = this.s.getValue(rec, 'i8')
-        let pe = new Uint8Array(this.sigLen-1)
-        for (var i=0; i<64; i++) {
-            var v = this.s.getValue(sig + i, 'i8')
-            pe[i] = v
-        }
+        let pe = this.copyToBuffer(sig, this.rawSigLen)
         this.s._free(privkey)
         this.s._free(msg)
         this.s._free(rawSig)
@@ -123,11 +136,7 @@ module.exports = function () {
           this.s._free(spubkey)
           return false
         }
-        let pc = new Uint8Array(pubLen)
-        for (var i=0; i<pubLen; i++) {
-            var v = this.s.getValue(spubkey + i, 'i8')
-            pc[i] = v
-        }
+        let pc = this.copyToBuffer(spubkey, pubLen)
         this.s._free(pubkey)
         this.s._free(outputLen)
         this.s._free(spubkey)
@@ -144,7 +153,7 @@ module.exports = function () {
         }
         // verify private key
         let privkey = this.s._malloc(this.privkeyLen)
-        let pubkey = this.s._malloc(64)
+        let pubkey = this.s._malloc(this.pubkeyLen)
         this.s.HEAP8.set(privkeyBuf, privkey)
         if (this.s._secp256k1_ec_seckey_verify(this.ctx, privkey) !== 1) {
           this.s._free(privkey)
@@ -156,11 +165,7 @@ module.exports = function () {
           this.s._free(pubkey)
           return false
         }
-        let pb = new Uint8Array(64)
-        for (var i=0; i<64; i++) {
-            var v = this.s.getValue(pubkey + i, 'i8')
-            pb[i] = v
-        }
+        let pb = this.copyToBuffer(pubkey, this.pubkeyLen)
         return pb
       }
 
@@ -178,10 +183,10 @@ module.exports = function () {
         if (isBuffer(pubkeyBuf) !== true || pubkeyBuf.length !== 64) {
           return false
         }
-        let sigData = this.s._malloc(64)
-        let sig = this.s._malloc(64)
-        let pubkey = this.s._malloc(64)
-        let msg = this.s._malloc(32)
+        let sigData = this.s._malloc(this.rawSigLen)
+        let sig = this.s._malloc(this.rawSigLen)
+        let pubkey = this.s._malloc(this.pubkeyLen)
+        let msg = this.s._malloc(this.msgLen)
         let isValid = false
         this.s.HEAP8.set(sigBuf, sigData)
         this.s.HEAP8.set(pubkeyBuf, pubkey)
@@ -211,9 +216,9 @@ module.exports = function () {
           return false
         }
         let msg = this.s._malloc(this.msgLen)
-        let sigData = this.s._malloc(64)
-        let sig = this.s._malloc(64)
-        let pubkey = this.s._malloc(64)
+        let sigData = this.s._malloc(this.rawSigLen)
+        let sig = this.s._malloc(this.rawSigLen)
+        let pubkey = this.s._malloc(this.pubkeyLen)
         this.s.HEAP8.set(msgBuf, msg)
         this.s.HEAP8.set(sigBuf, sigData)
         if (this.s._secp256k1_ecdsa_recoverable_signature_parse_compact(this.ctx, sig, sigData, recid) !== 1) {
@@ -230,11 +235,7 @@ module.exports = function () {
           this.s._free(pubkey)
           return false
         }
-        let pb = new Uint8Array(64)
-        for (var i=0; i<64; i++) {
-            var v = this.s.getValue(pubkey + i, 'i8')
-            pb[i] = v
-        }
+        let pb = this.copyToBuffer(pubkey, this.pubkeyLen)
         this.s._free(msg)
         this.s._free(sigData)
         this.s._free(sig)
