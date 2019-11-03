@@ -1,0 +1,15 @@
+{
+  "name": "secp256k1-benchmark",
+  "version": "0.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "benchmark": "^2.1.2",
+    "elliptic": "^6.5.1",
+    "secp256k1": "^3.7.1"
+  },
+  "private": true
+}
