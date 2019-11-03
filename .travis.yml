@@ -9,3 +9,6 @@ node_js:
   - "8"
   - "10"
   - "11"
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash) -t b79b3f7d-e571-4013-a6fd-2a2b1cf98e0a
