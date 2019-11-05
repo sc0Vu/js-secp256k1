@@ -24,13 +24,8 @@ EMCC_OPTIONS=(
     -s STRICT=1
 )
 
-EMCC_NODE_OPTIONS=(
-    -s ENVIRONMENT=node
-    -s NO_FILESYSTEM=0
-)
-
 EMCC_WEB_OPTIONS=(
-    -s ENVIRONMENT=web
+    # -s ENVIRONMENT=web
     -s NO_FILESYSTEM=1
 )
 
@@ -48,8 +43,5 @@ EMCC_WASM_OPTIONS=(
 
 cd ../
 
-echo "Build secp256k1 for browser"
-emcc "${EMCC_OPTIONS[@]}" "${EMCC_WEB_OPTIONS[@]}" "${EMCC_SECP256K1_OPTIONS[@]}" "${EMCC_WASM_OPTIONS[@]}" $SECP256K1_DIR/.libs/libsecp256k1.a -o ./lib/secp256k1-browser.js
-echo "Build secp256k1 for nodejs"
-emcc "${EMCC_OPTIONS[@]}" "${EMCC_NODE_OPTIONS[@]}" "${EMCC_SECP256K1_OPTIONS[@]}" "${EMCC_WASM_OPTIONS[@]}"  $SECP256K1_DIR/.libs/libsecp256k1.a -o ./lib/secp256k1-node.js
-
+echo "Build secp256k1"
+emcc "${EMCC_OPTIONS[@]}" "${EMCC_WEB_OPTIONS[@]}" "${EMCC_SECP256K1_OPTIONS[@]}" "${EMCC_WASM_OPTIONS[@]}" $SECP256K1_DIR/.libs/libsecp256k1.a -o ./lib/secp256k1.js

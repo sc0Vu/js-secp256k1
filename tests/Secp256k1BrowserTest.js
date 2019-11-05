@@ -16,15 +16,15 @@ describe('Secp256k1BrowserTest', function () {
   })
 
   it ('Shoud hash/verify message', async function () {
+    const url = `file://${path.join(__dirname, 'index.html')}`
     try {
-      const url = `file://${path.join(__dirname, 'index.html')}`
       await driver.get(url)
-      await driver.wait(until.titleIs('Secp256k1 test succed'), 9000);
+      await driver.wait(until.titleIs('Secp256k1 test succed'), 9000)
       assert(true)
     } catch (err) {
       assert(false)
     } finally {
-      driver.quit()
+      return driver.quit()
     }
   })
 })

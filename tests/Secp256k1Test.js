@@ -1,5 +1,6 @@
 const assert = require('assert')
-const Secp256k1Async = require('../index').node
+const Buffer = require('buffer/').Buffer
+const Secp256k1Async = require('../dist/node-bundle.js')
 const Secp256k1 = require('secp256k1')
 
 describe('Secp256k1Test', function () {
@@ -16,7 +17,7 @@ describe('Secp256k1Test', function () {
     let newSig = secp256k1.sign(msg, privkey)
     let newSig2 = Secp256k1.sign(msg, privkey)
     assert(newSig !== false)
-    assert(newSig.signature.equals(newSig2.signature))
+    assert(newSig.signature.equals(Buffer.from(newSig2.signature)))
     assert.equal(newSig.recovery, newSig2.recovery)
     done()
   })

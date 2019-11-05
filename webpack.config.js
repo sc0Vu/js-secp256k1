@@ -1,37 +1,16 @@
 const webpack = require("webpack")
 const path = require("path")
-const UglifyPlugin = require('uglifyjs-webpack-plugin')
-
+const nodeEnv = process.env.NODE_ENV
 const nodeConfig = {
-  mode: "development",
+  mode: nodeEnv,
   target: 'node',
   context: path.resolve(__dirname, "."),
-  entry: "./index-node.js",
+  entry: "./index.js",
   output: {
+    library: 'SECP256K1',
     libraryTarget: 'commonjs2',
     path: path.resolve(__dirname, "dist"),
     filename: "node-bundle.js"
-  },
-  module: {
-    rules: [
-      {
-        test: /secp256k1-node\.wasm$/,
-        type: "javascript/auto",
-        loader: "wasm-loader",
-      }
-    ]
-  }
-}
-const browserConfig = {
-  mode: "development",
-  target: 'web',
-  context: path.resolve(__dirname, "."),
-  entry: "./index-browser.js",
-  output: {
-    library: 'SECP256K1',
-    libraryTarget: 'var',
-    path: path.resolve(__dirname, "dist"),
-    filename: "browser-bundle.js"
   },
   node: {
     fs: 'empty'
@@ -39,21 +18,36 @@ const browserConfig = {
   module: {
     rules: [
       {
-        test: /secp256k1-browser\.wasm$/,
+        test: /secp256k1\.wasm$/,
         type: "javascript/auto",
         loader: "wasm-loader",
       }
     ]
+  }
+}
+
+const browserConfig = {
+  mode: nodeEnv,
+  target: 'web',
+  context: path.resolve(__dirname, "."),
+  entry: "./index.js",
+  output: {
+    library: 'SECP256K1',
+    libraryTarget: 'var',
+    path: path.resolve(__dirname, "dist"),
+    filename: "bundle.js"
   },
-  optimization: {
-    minimize: true,
-    minimizer: [new UglifyPlugin({
-      uglifyOptions: {
-        output: {
-          comments: false,
-        },
-      },
-    })],
+  node: {
+    fs: 'empty'
+  },
+  module: {
+    rules: [
+      {
+        test: /secp256k1\.wasm$/,
+        type: "javascript/auto",
+        loader: "wasm-loader",
+      }
+    ]
   }
 }
 
