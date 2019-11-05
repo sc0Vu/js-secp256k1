@@ -32,19 +32,18 @@ $ npm run build
 ```JS
 // for nodejs
 const secp256k1Async = require('js-secp256k1/dist/node-bundle')
-// or
-const secp256k1Async = require('js-secp256k1').node
 
 // for browser
-const secp256k1Async = require('js-secp256k1/dist/browser-bundle')
-// or
-const secp256k1Async = require('js-secp256k1').browser
+const secp256k1Async = require('js-secp256k1/dist/bundle')
 
 // initialize the library
 secp256k1 = await secp256k1Async()
 
 // generate public key from private key
 const privKey = Buffer.from([......])
+// browser
+const privKey = new Uint8Array([......])
+
 let pubkey = secp256k1.privkeyToPubkey(privkey)
 
 // serialize public key
