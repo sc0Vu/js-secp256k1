@@ -1,5 +1,5 @@
 const benchmark = require('benchmark')
-const secp256k1Async = require('../index').node
+const secp256k1Async = require('../dist/node-bundle.js')
 const obindings = require('secp256k1')
 const elliptic = require('elliptic')
 const ec = new elliptic.ec('secp256k1')
@@ -9,8 +9,8 @@ secp256k1Async().then(function (secp256k1Wasm) {
   const ecprivkey = ec.keyFromPrivate(privkeyBuf)
   const msg = require('crypto').randomBytes(32)
   new benchmark.Suite('Sign')
-    .add('Secp256k1 wasm (current)', () => secp256k1Wasm.sign(msg, privkeyBuf))
-    .add('Binding (secp256k1)', () => obindings.sign(msg, privkeyBuf))
+    .add('Secp256k1 WASM (current)', () => secp256k1Wasm.sign(msg, privkeyBuf))
+    .add('GYP Binding (secp256k1)', () => obindings.sign(msg, privkeyBuf))
     .add('Pure JS (elliptic)', () => ecprivkey.sign(msg))
     .on('cycle', (event) => {
       console.log(String(event.target))
@@ -27,9 +27,24 @@ secp256k1Async().then(function (secp256k1Wasm) {
   }
 
   new benchmark.Suite('Recover')
-    .add('Secp256k1 wasm (current)', () => secp256k1Wasm.recover(msg, sig.signature, sig.recovery))
-    .add('Binding (secp256k1)', () => obindings.recover(msg, sig.signature, sig.recovery))
+    .add('Secp256k1 WASM (current)', () => secp256k1Wasm.recover(msg, sig.signature, sig.recovery))
+    .add('GYP Binding (secp256k1)', () => obindings.recover(msg, sig.signature, sig.recovery))
     .add('Pure JS (elliptic)', () => ec.recoverPubKey(msg, sig2, sig.recovery))
+    .on('cycle', (event) => {
+      console.log(String(event.target))
+    })
+    .on('complete', function () {
+      console.log(`${this.name}: fastest is ${this.filter('fastest').map('name')}`)
+    })
+    .run()
+
+  let pubkey = secp256k1Wasm.privkeyToPubkey(privkeyBuf)
+  let cpubkey = secp256k1Wasm.serializePubkey(pubkey, true)
+
+  new benchmark.Suite('Verify')
+    .add('Secp256k1 WASM (current)', () => secp256k1Wasm.verify(msg, sig.signature, pubkey))
+    .add('GYP Binding (secp256k1)', () => obindings.verify(msg, sig.signature, cpubkey))
+    .add('Pure JS (elliptic)', () => ecprivkey.verify(msg, sig2))
     .on('cycle', (event) => {
       console.log(String(event.target))
     })
