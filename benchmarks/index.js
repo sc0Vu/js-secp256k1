@@ -8,6 +8,8 @@ secp256k1Async().then(function (secp256k1Wasm) {
   const privkeyBuf = Buffer.from([70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70])
   const ecprivkey = ec.keyFromPrivate(privkeyBuf)
   const msg = require('crypto').randomBytes(32)
+  const pubkey = secp256k1Wasm.privkeyToPubkey(privkeyBuf)
+  const cpubkey = secp256k1Wasm.serializePubkey(pubkey, true)
   new benchmark.Suite('Sign')
     .add('Secp256k1 WASM (current)', () => secp256k1Wasm.sign(msg, privkeyBuf))
     .add('GYP Binding (secp256k1)', () => obindings.sign(msg, privkeyBuf))
@@ -37,9 +39,6 @@ secp256k1Async().then(function (secp256k1Wasm) {
       console.log(`${this.name}: fastest is ${this.filter('fastest').map('name')}`)
     })
     .run()
-
-  let pubkey = secp256k1Wasm.privkeyToPubkey(privkeyBuf)
-  let cpubkey = secp256k1Wasm.serializePubkey(pubkey, true)
 
   new benchmark.Suite('Verify')
     .add('Secp256k1 WASM (current)', () => secp256k1Wasm.verify(msg, sig.signature, pubkey))

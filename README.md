@@ -64,6 +64,31 @@ let isVerified secp256k1.verify(msg, sig.signature, pubkey)
 let rpubkey = secp256k1.recover(msg, sig.signature, sig.recovery)
 ```
 
+# Benchmark
+
+Computer: 2.2 GHz 6-Core Intel Core i7
+
+```
+$ node -v
+v12.18.1
+
+> secp256k1-benchmark@0.0.0 start /Users/peterlai/Desktop/Projects/js-secp256k1/benchmarks
+> node index.js
+
+Secp256k1 WASM (current) x 3,911 ops/sec ±0.84% (96 runs sampled)
+GYP Binding (secp256k1) x 1,162 ops/sec ±0.67% (92 runs sampled)
+Pure JS (elliptic) x 1,255 ops/sec ±0.16% (96 runs sampled)
+Sign: fastest is Secp256k1 WASM (current)
+Secp256k1 WASM (current) x 1,671 ops/sec ±1.32% (96 runs sampled)
+GYP Binding (secp256k1): 
+Pure JS (elliptic) x 393 ops/sec ±2.32% (77 runs sampled)
+Recover: fastest is Secp256k1 WASM (current)
+Secp256k1 WASM (current) x 1,647 ops/sec ±1.68% (87 runs sampled)
+GYP Binding (secp256k1): 
+Pure JS (elliptic) x 499 ops/sec ±2.94% (84 runs sampled)
+Verify: fastest is Secp256k1 WASM (current)
+```
+
 # License
 
 MIT
