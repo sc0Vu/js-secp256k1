@@ -124,22 +124,23 @@ module.exports = function () {
       }
 
       secp256k1._serializePubkey = function (pubkeyBuf, compressed) {
+        // let opubkey = this.s._malloc(pubkeyBuf.length)
         let pubkey = this.s._malloc(pubkeyBuf.length)
-        let outputLen = this.s._malloc(1)
         let pubLen = (compressed) ? 33 : 65;
+        let mode = (compressed) ? this.SECP256K1_EC_COMPRESSED : this.SECP256K1_EC_UNCOMPRESSED
         let spubkey = this.s._malloc(pubLen)
+        let spubkeyLen = this.s._malloc(1)
         this.s.HEAP8.set(pubkeyBuf, pubkey)
-        this.s.HEAP8.set([pubkeyBuf.length], outputLen)
-        this.s.HEAP8.set([pubLen], outputLen)
-        if (this.s._secp256k1_ec_pubkey_serialize(this.ctx, spubkey, outputLen, pubkey, (compressed) ? this.SECP256K1_EC_COMPRESSED : this.SECP256K1_EC_UNCOMPRESSED) !== 1) {
+        this.s.HEAP8.set([pubLen], spubkeyLen)
+        if (this.s._secp256k1_ec_pubkey_serialize(this.ctx, spubkey, spubkeyLen, pubkey, mode) !== 1) {
           this.s._free(pubkey)
-          this.s._free(outputLen)
+          this.s._free(spubkeyLen)
           this.s._free(spubkey)
           return false
         }
         let pc = this.copyToBuffer(spubkey, pubLen)
         this.s._free(pubkey)
-        this.s._free(outputLen)
+        this.s._free(spubkeyLen)
         this.s._free(spubkey)
         return pc
       }
