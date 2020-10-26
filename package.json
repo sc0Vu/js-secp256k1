@@ -1,6 +1,6 @@
 {
   "name": "js-secp256k1",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Compiled webassembly of bitcoin secp256k1",
   "main": "index.js",
   "dependencies": {
