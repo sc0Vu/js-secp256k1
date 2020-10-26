@@ -6,7 +6,7 @@ cd $SECP256K1_DIR
 sh autogen.sh
 
 # configure secp256k1
-emconfigure ./configure --enable-module-recovery
+emconfigure ./configure --enable-module-recovery --no-entry
 
 # make secp256k1
 emmake make
