@@ -65,6 +65,27 @@ module.exports = function () {
         return out
       }
 
+      secp256k1.malloc = function (buf, len) {
+        if (buf.length > len) {
+          throw new Error('buffer should not exceeds the size')
+        }
+        let ptr = this.s._malloc(len)
+        if (buf.length > 0) {
+          this.s.HEAP8.set(buf, ptr)
+        }
+        return ptr
+      }
+
+      secp256k1.free = function (ptr) {
+        this.s._free(ptr)
+      }
+
+      secp256k1.cleanUp = function () {
+        for (let i=0; i<arguments.length; i++) {
+          this.free(arguments[i])
+        }
+      }
+
       secp256k1.sign = function (msg, privkey) {
         return this._sign(Buffer.from(msg), Buffer.from(privkey))
       }
@@ -77,42 +98,28 @@ module.exports = function () {
           return false
         }
         // verify private key
-        let privkey = this.s._malloc(this.privkeyLen)
-        let msg = this.s._malloc(this.msgLen)
-        this.s.HEAP8.set(privkeyBuf, privkey)
-        this.s.HEAP8.set(msgBuf, msg)
+        let privkey = this.malloc(privkeyBuf, this.privkeyLen)
+        let msg = this.malloc(msgBuf, this.msgLen)
         if (this.s._secp256k1_ec_seckey_verify(this.ctx, privkey) !== 1) {
-          this.s._free(privkey)
-          this.s._free(msg)
+          this.cleanUp(privkey, msg)
           return false
         }
-        let rawSig = this.s._malloc(this.sigLen)
-        let sig = this.s._malloc(this.sigLen)
-        let rec = this.s._malloc(1)
+        let empty = Buffer.from([])
+        let rawSig = this.malloc(empty, this.sigLen)
+        let sig = this.malloc(empty, this.sigLen)
+        let rec = this.malloc(empty, 1)
         if (this.s._secp256k1_ecdsa_sign_recoverable(this.ctx, rawSig, msg, privkey, null, null) !== 1) {
-          this.s._free(privkey)
-          this.s._free(msg)
-          this.s._free(rawSig)
-          this.s._free(sig)
-          this.s._free(rec)
+          this.leanUp(privkey, msg, rawSig, sig, rec)
           return false
         }
         if (this.s._secp256k1_ecdsa_recoverable_signature_serialize_compact(this.ctx, sig, rec, rawSig) !== 1) {
-          this.s._free(privkey)
-          this.s._free(msg)
-          this.s._free(rawSig)
-          this.s._free(sig)
-          this.s._free(rec)
+          this.cleanUp(privkey, msg, rawSig, sig, rec)
           return false
         }
         // set rec to last
         let recid = this.s.getValue(rec, 'i8')
         let pe = this.copyToBuffer(sig, this.rawSigLen)
-        this.s._free(privkey)
-        this.s._free(msg)
-        this.s._free(rawSig)
-        this.s._free(sig)
-        this.s._free(rec)
+        this.cleanUp(privkey, msg, rawSig, sig, rec)
         return {
           signature: pe,
           recovery: recid
@@ -124,24 +131,18 @@ module.exports = function () {
       }
 
       secp256k1._serializePubkey = function (pubkeyBuf, compressed) {
-        // let opubkey = this.s._malloc(pubkeyBuf.length)
-        let pubkey = this.s._malloc(pubkeyBuf.length)
+        let pubkey = this.malloc(pubkeyBuf, pubkeyBuf.length)
         let pubLen = (compressed) ? 33 : 65;
         let mode = (compressed) ? this.SECP256K1_EC_COMPRESSED : this.SECP256K1_EC_UNCOMPRESSED
-        let spubkey = this.s._malloc(pubLen)
-        let spubkeyLen = this.s._malloc(1)
-        this.s.HEAP8.set(pubkeyBuf, pubkey)
-        this.s.HEAP8.set([pubLen], spubkeyLen)
+        let empty = Buffer.from([])
+        let spubkey = this.malloc(empty, pubLen)
+        let spubkeyLen = this.malloc(Buffer.from([pubLen]), 1)
         if (this.s._secp256k1_ec_pubkey_serialize(this.ctx, spubkey, spubkeyLen, pubkey, mode) !== 1) {
-          this.s._free(pubkey)
-          this.s._free(spubkeyLen)
-          this.s._free(spubkey)
+          this.cleanUp(pubkey, spubkey, spubkeyLen)
           return false
         }
         let pc = this.copyToBuffer(spubkey, pubLen)
-        this.s._free(pubkey)
-        this.s._free(spubkeyLen)
-        this.s._free(spubkey)
+        this.cleanUp(pubkey, spubkey, spubkeyLen)
         return pc
       }
 
@@ -154,17 +155,15 @@ module.exports = function () {
           return false
         }
         // verify private key
-        let privkey = this.s._malloc(this.privkeyLen)
-        let pubkey = this.s._malloc(this.pubkeyLen)
-        this.s.HEAP8.set(privkeyBuf, privkey)
+        let empty = Buffer.from([])
+        let privkey = this.malloc(privkeyBuf, this.privkeyLen)
+        let pubkey = this.malloc(empty, this.pubkeyLen)
         if (this.s._secp256k1_ec_seckey_verify(this.ctx, privkey) !== 1) {
-          this.s._free(privkey)
-          this.s._free(pubkey)
+          this.cleanUp(privkey, pubkey)
           return false
         }
         if (this.s._secp256k1_ec_pubkey_create(this.ctx, pubkey, privkey) !== 1) {
-          this.s._free(privkey)
-          this.s._free(pubkey)
+          this.cleanUp(privkey, pubkey)
           return false
         }
         let pb = this.copyToBuffer(pubkey, this.pubkeyLen)
@@ -185,21 +184,16 @@ module.exports = function () {
         if (isBuffer(pubkeyBuf) !== true || pubkeyBuf.length !== 64) {
           return false
         }
-        let sigData = this.s._malloc(this.rawSigLen)
-        let sig = this.s._malloc(this.rawSigLen)
-        let pubkey = this.s._malloc(this.pubkeyLen)
-        let msg = this.s._malloc(this.msgLen)
+        let empty = Buffer.from([])
+        let sigData = this.malloc(sigBuf, this.rawSigLen)
+        let sig = this.malloc(empty, this.rawSigLen)
+        let pubkey = this.malloc(pubkeyBuf, this.pubkeyLen)
+        let msg = this.malloc(msgBuf, this.msgLen)
         let isValid = false
-        this.s.HEAP8.set(sigBuf, sigData)
-        this.s.HEAP8.set(pubkeyBuf, pubkey)
-        this.s.HEAP8.set(msgBuf, msg)
         if (this.s._secp256k1_ecdsa_signature_parse_compact(this.ctx, sig, sigData) === 1) {
           isValid = this.s._secp256k1_ecdsa_verify(this.ctx, sig, msg, pubkey) === 1
         }
-        this.s._free(sigData)
-        this.s._free(sig)
-        this.s._free(pubkey)
-        this.s._free(msg)
+        this.cleanUp(sigData, sig, pubkey, msg)
         return isValid
       }
 
@@ -217,37 +211,26 @@ module.exports = function () {
         if (typeof recid !== 'number' || recid > 1 || recid < 0) {
           return false
         }
-        let msg = this.s._malloc(this.msgLen)
-        let sigData = this.s._malloc(this.rawSigLen)
-        let sig = this.s._malloc(this.rawSigLen)
-        let pubkey = this.s._malloc(this.pubkeyLen)
-        this.s.HEAP8.set(msgBuf, msg)
-        this.s.HEAP8.set(sigBuf, sigData)
+        let empty = Buffer.from([])
+        let msg = this.malloc(msgBuf, this.msgLen)
+        let sigData = this.malloc(sigBuf, this.rawSigLen)
+        let sig = this.malloc(empty, this.rawSigLen)
+        let pubkey = this.malloc(empty, this.pubkeyLen)
         if (this.s._secp256k1_ecdsa_recoverable_signature_parse_compact(this.ctx, sig, sigData, recid) !== 1) {
-          this.s._free(msg)
-          this.s._free(sigData)
-          this.s._free(sig)
-          this.s._free(pubkey)
+          this.cleanUp(msg, sigData, sig, pubkey)
           return false
         }
         if (this.s._secp256k1_ecdsa_recover(this.ctx, pubkey, sig, msg) !== 1) {
-          this.s._free(msg)
-          this.s._free(sigData)
-          this.s._free(sig)
-          this.s._free(pubkey)
+          this.cleanUp(msg, sigData, sig, pubkey)
           return false
         }
         let pb = this.copyToBuffer(pubkey, this.pubkeyLen)
-        this.s._free(msg)
-        this.s._free(sigData)
-        this.s._free(sig)
-        this.s._free(pubkey)
+        this.cleanUp(msg, sigData, sig, pubkey)
         return pb
       }
 
       secp256k1.destroy = function () {
         this.s._secp256k1_context_destroy(this.ctx)
-        // this.s = null
       }
 
       resolve(secp256k1)
