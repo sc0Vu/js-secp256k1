@@ -8,7 +8,7 @@ cd $SECP256K1_DIR
 sh autogen.sh
 
 # configure secp256k1
-emconfigure ./configure --enable-module-recovery
+CFLAGS="-O3" emconfigure ./configure --enable-module-recovery
 
 # make secp256k1
 emmake make
@@ -16,9 +16,11 @@ emmake make
 # compile secp256k1.wasm
 EMCC_OPTIONS=(
     -O3
+    -flto
+    -s DISABLE_EXCEPTION_CATCHING=1
     -s MODULARIZE=1
     -s EXPORT_NAME="'SECP256K1'"
-    -s ALLOW_MEMORY_GROWTH=1
+    -s ALLOW_MEMORY_GROWTH=0
     -s INVOKE_RUN=1
     -s ERROR_ON_UNDEFINED_SYMBOLS=0
     -s NO_EXIT_RUNTIME=1
@@ -38,9 +40,13 @@ EMCC_SECP256K1_OPTIONS=(
         '_secp256k1_context_destroy', \
         '_secp256k1_ec_pubkey_create', \
         '_secp256k1_ec_pubkey_combine', \
+        '_secp256k1_ec_pubkey_negate', \
         '_secp256k1_ec_pubkey_parse', \
         '_secp256k1_ec_pubkey_serialize', \
+        '_secp256k1_ec_pubkey_tweak_mul', \
+        '_secp256k1_ec_seckey_negate', \
         '_secp256k1_ec_seckey_tweak_add', \
+        '_secp256k1_ec_seckey_tweak_mul', \
         '_secp256k1_ec_seckey_verify', \
         '_secp256k1_ecdsa_recover', \
         '_secp256k1_ecdsa_recoverable_signature_parse_compact', \

@@ -46,6 +46,10 @@ module.exports = function () {
           writable: false,
           value: 64
         },
+        serializedPubkeyLen: {
+          writable: false,
+          value: 65
+        },
         SECP256K1_EC_COMPRESSED: {
           writable: false,
           value: 258
@@ -53,8 +57,35 @@ module.exports = function () {
         SECP256K1_EC_UNCOMPRESSED: {
           writable: false,
           value: 2
-        }
+        },
+        MAX_COMBINE_PUBKEYS: {
+          writable: false,
+          value: 256
+        },
       })
+
+      const empty = Buffer.from([])
+
+      // Reused memory allocations, these live as long as the object
+      const publicKeyScratch = secp256k1.s._malloc(secp256k1.pubkeyLen)
+      const serializedPublicKeyScratch = secp256k1.s._malloc(secp256k1.serializedPubkeyLen)
+      const lengthScratch = secp256k1.s._malloc(1)
+      const privateKeyScratch = secp256k1.s._malloc(secp256k1.privkeyLen)
+      const tweakScratch = secp256k1.s._malloc(secp256k1.privkeyLen)
+      const rawSignatureScratch = secp256k1.s._malloc(secp256k1.sigLen)
+      const signatureScratch = secp256k1.s._malloc(secp256k1.sigLen)
+      const signatureDataScratch = secp256k1.s._malloc(secp256k1.sigLen)
+      const messageScratch = secp256k1.s._malloc(secp256k1.msgLen)
+      const rec = secp256k1.s._malloc(1)
+
+      const combineScratch = secp256k1.s._malloc(secp256k1.MAX_COMBINE_PUBKEYS * secp256k1.pubkeyLen)
+
+      const combinePtr = []
+      for (let idx = 0; idx < secp256k1.MAX_COMBINE_PUBKEYS; idx++) {
+        combinePtr.push(combineScratch + idx * secp256k1.pubkeyLen);
+      }
+      const combinePtrScratch = secp256k1.s._malloc(secp256k1.MAX_COMBINE_PUBKEYS * 4)
+      secp256k1.s.HEAP32.set(combinePtr, combinePtrScratch >> 2)
 
       secp256k1.copyToBuffer = function (src, len) {
         let out = new Buffer(len)
@@ -63,6 +94,10 @@ module.exports = function () {
           out[i] = v
         }
         return out
+      }
+
+      secp256k1.copyFromBuffer = function (buf, dst) {
+        this.s.HEAP8.set(buf, dst)
       }
 
       secp256k1.malloc = function (buf, len) {
@@ -98,28 +133,25 @@ module.exports = function () {
           return false
         }
         // verify private key
-        let privkey = this.malloc(privkeyBuf, this.privkeyLen)
-        let msg = this.malloc(msgBuf, this.msgLen)
-        if (this.s._secp256k1_ec_seckey_verify(this.ctx, privkey) !== 1) {
-          this.cleanUp(privkey, msg)
+        this.copyFromBuffer(privkeyBuf, privateKeyScratch)
+        this.copyFromBuffer(msgBuf, messageScratch)
+
+        if (this.s._secp256k1_ec_seckey_verify(this.ctx, privateKeyScratch) !== 1) {
           return false
         }
-        let empty = Buffer.from([])
-        let rawSig = this.malloc(empty, this.sigLen)
-        let sig = this.malloc(empty, this.sigLen)
-        let rec = this.malloc(empty, 1)
-        if (this.s._secp256k1_ecdsa_sign_recoverable(this.ctx, rawSig, msg, privkey, null, null) !== 1) {
-          this.leanUp(privkey, msg, rawSig, sig, rec)
+
+        if (this.s._secp256k1_ecdsa_sign_recoverable(this.ctx, rawSignatureScratch, messageScratch, privateKeyScratch, null, null) !== 1) {
           return false
         }
-        if (this.s._secp256k1_ecdsa_recoverable_signature_serialize_compact(this.ctx, sig, rec, rawSig) !== 1) {
-          this.cleanUp(privkey, msg, rawSig, sig, rec)
+
+        if (this.s._secp256k1_ecdsa_recoverable_signature_serialize_compact(this.ctx, signatureScratch, rec, rawSignatureScratch) !== 1) {
           return false
         }
+
         // set rec to last
         let recid = this.s.getValue(rec, 'i8')
-        let pe = this.copyToBuffer(sig, this.rawSigLen)
-        this.cleanUp(privkey, msg, rawSig, sig, rec)
+        let pe = this.copyToBuffer(signatureScratch, this.rawSigLen)
+
         return {
           signature: pe,
           recovery: recid
@@ -131,30 +163,19 @@ module.exports = function () {
       }
 
       secp256k1._combinePubkeys = function(pubkeyBufArr) {
-        const concatBuffer = Buffer.alloc(pubkeyBufArr.length * 65, 0)
-        pubkeyBufArr.forEach((pubkeyBuf, idx) => {
-          pubkeyBuf.copy(concatBuffer, idx * 65)
-        })
-
-        const concatBufferPtr = this.malloc(concatBuffer, concatBuffer.length)
-
-        const pubkeyPtrs = []
-        for (let idx = 0; idx < pubkeyBufArr.length; idx++) {
-          pubkeyPtrs.push(concatBufferPtr + idx * 65);
-        }
-        const pubkeyPtrArrPtr = this.malloc(Buffer.from([]), pubkeyBufArr.length * 4)
-        this.s.HEAP32.set(pubkeyPtrs, pubkeyPtrArrPtr >> 2)
-
-        const empty = Buffer.from([])
-        const pubkey = this.malloc(empty, this.pubkeyLen)
-
-        if(this.s._secp256k1_ec_pubkey_combine(this.ctx, pubkey, pubkeyPtrArrPtr, pubkeyBufArr.length) !== 1) {
-          this.cleanUp(concatBufferPtr, pubkeyPtrArrPtr, pubkey)
+        if (pubkeyBufArr.length > this.MAX_COMBINE_PUBKEYS) {
           return false
         }
 
-        const pb = this.copyToBuffer(pubkey, this.pubkeyLen)
-        this.cleanUp(concatBufferPtr, pubkeyPtrArrPtr, pubkey)
+        pubkeyBufArr.forEach((pubkeyBuf, idx) => {
+          this.copyFromBuffer(pubkeyBuf, combineScratch + idx * this.pubkeyLen);
+        })
+
+        if(this.s._secp256k1_ec_pubkey_combine(this.ctx, publicKeyScratch, combinePtrScratch, pubkeyBufArr.length) !== 1) {
+          return false
+        }
+
+        const pb = this.copyToBuffer(publicKeyScratch, this.pubkeyLen)
         return pb
       }
 
@@ -163,18 +184,32 @@ module.exports = function () {
       }
 
       secp256k1._serializePubkey = function (pubkeyBuf, compressed) {
-        let pubkey = this.malloc(pubkeyBuf, pubkeyBuf.length)
         let pubLen = (compressed) ? 33 : 65;
         let mode = (compressed) ? this.SECP256K1_EC_COMPRESSED : this.SECP256K1_EC_UNCOMPRESSED
-        let empty = Buffer.from([])
-        let spubkey = this.malloc(empty, pubLen)
-        let spubkeyLen = this.malloc(Buffer.from([pubLen]), 1)
-        if (this.s._secp256k1_ec_pubkey_serialize(this.ctx, spubkey, spubkeyLen, pubkey, mode) !== 1) {
-          this.cleanUp(pubkey, spubkey, spubkeyLen)
+
+        this.copyFromBuffer(pubkeyBuf, publicKeyScratch)
+        this.s.HEAP32.set([pubLen], lengthScratch >> 2)
+
+        if (this.s._secp256k1_ec_pubkey_serialize(this.ctx, serializedPublicKeyScratch, lengthScratch, publicKeyScratch, mode) !== 1) {
           return false
         }
-        let pc = this.copyToBuffer(spubkey, pubLen)
-        this.cleanUp(pubkey, spubkey, spubkeyLen)
+        let pc = this.copyToBuffer(serializedPublicKeyScratch, pubLen)
+        return pc
+      }
+
+      secp256k1.parsePubkey = function (serializedPubkey) {
+        return this._parsePubkey(Buffer.from(serializedPubkey))
+      }
+
+      secp256k1._parsePubkey = function (serializedPubkeyBuf) {
+        this.copyFromBuffer(serializedPubkeyBuf, serializedPublicKeyScratch)
+        // this.s.HEAP32.set([serializedPubkeyBuf.length], lengthScratch >> 2)
+
+        if (this.s._secp256k1_ec_pubkey_parse(this.ctx, publicKeyScratch, serializedPublicKeyScratch, serializedPubkeyBuf.length) !== 1) {
+          return false;
+        }
+
+        let pc = this.copyToBuffer(publicKeyScratch, this.pubkeyLen)
         return pc
       }
 
@@ -183,17 +218,55 @@ module.exports = function () {
       }
 
       secp256k1._privkeyAddTweak = function (privkeyBuf, tweakBuf) {
-        const privkey = this.malloc(privkeyBuf, this.privkeyLen)
-        const tweakPtr = this.malloc(tweakBuf, this.privkeyLen)
+        this.copyFromBuffer(privkeyBuf, privateKeyScratch)
+        this.copyFromBuffer(tweakBuf, tweakScratch)
 
-        if (this.s._secp256k1_ec_seckey_tweak_add(this.ctx, privkey, tweakPtr) !== 1) {
-          this.cleanUp(privkey, tweakPtr)
+        if (this.s._secp256k1_ec_seckey_tweak_add(this.ctx, privateKeyScratch, tweakScratch) !== 1) {
           return false
         }
 
-        const tweakedPrivkey = this.copyToBuffer(privkey, this.privkeyLen)
-        this.cleanUp(privkey, tweakPtr)
+        const tweakedPrivkey = this.copyToBuffer(privateKeyScratch, this.privkeyLen)
         return tweakedPrivkey
+      }
+
+      secp256k1.privkeyMulTweak = function (privkey, tweak) {
+        return this._privkeyMulTweak(Buffer.from(privkey), Buffer.from(tweak))
+      }
+
+      secp256k1._privkeyMulTweak = function (privkeyBuf, tweakBuf) {
+        this.copyFromBuffer(privkeyBuf, privateKeyScratch)
+        this.copyFromBuffer(tweakBuf, tweakScratch)
+
+        if (this.s._secp256k1_ec_seckey_tweak_mul(this.ctx, privateKeyScratch, tweakScratch) !== 1) {
+          return false
+        }
+
+        const tweakedPrivkey = this.copyToBuffer(privateKeyScratch, this.privkeyLen)
+        return tweakedPrivkey
+      }
+
+      secp256k1.privkeyNegate = function (privkey) {
+        return this._privkeyNegate(Buffer.from(privkey))
+      }
+
+      secp256k1._privkeyNegate = function (privkeyBuf) {
+        this.copyFromBuffer(privkeyBuf, privateKeyScratch);
+
+        if (this.s._secp256k1_ec_seckey_negate(this.ctx, privateKeyScratch) !== 1) {
+          return false
+        }
+
+        return this.copyToBuffer(privateKeyScratch, this.privkeyLen)
+      }
+
+      secp256k1.privkeyVerify = function (privkey) {
+        return this._privkeyVerify(Buffer.from(privkey))
+      }
+
+      secp256k1._privkeyVerify = function (privkeyBuf) {
+        this.copyFromBuffer(privkeyBuf, privateKeyScratch)
+
+        return this.s._secp256k1_ec_seckey_verify(this.ctx, privateKeyScratch) === 1
       }
 
       secp256k1.privkeyToPubkey = function (privkey) {
@@ -201,23 +274,51 @@ module.exports = function () {
       }
 
       secp256k1._privkeyToPubkey = function (privkeyBuf) {
-        if (isBuffer(privkeyBuf) !== true || privkeyBuf.length !== this.msgLen) {
-          return false
-        }
+        // if (isBuffer(privkeyBuf) !== true || privkeyBuf.length !== this.privkeyLen) {
+        //   return false
+        // }
+        this.copyFromBuffer(privkeyBuf, privateKeyScratch)
+
         // verify private key
-        let empty = Buffer.from([])
-        let privkey = this.malloc(privkeyBuf, this.privkeyLen)
-        let pubkey = this.malloc(empty, this.pubkeyLen)
-        if (this.s._secp256k1_ec_seckey_verify(this.ctx, privkey) !== 1) {
-          this.cleanUp(privkey, pubkey)
+        if (this.s._secp256k1_ec_seckey_verify(this.ctx, privateKeyScratch) !== 1) {
           return false
         }
-        if (this.s._secp256k1_ec_pubkey_create(this.ctx, pubkey, privkey) !== 1) {
-          this.cleanUp(privkey, pubkey)
+
+        if (this.s._secp256k1_ec_pubkey_create(this.ctx, publicKeyScratch, privateKeyScratch) !== 1) {
           return false
         }
-        let pb = this.copyToBuffer(pubkey, this.pubkeyLen)
+
+        let pb = this.copyToBuffer(publicKeyScratch, this.pubkeyLen)
         return pb
+      }
+
+      secp256k1.pubkeyMulTweak = function (pubkey, tweak) {
+        return secp256k1._pubkeyMulTweak(Buffer.from(pubkey), Buffer.from(tweak))
+      }
+
+      secp256k1._pubkeyMulTweak = function (pubkeyBuf, tweakBuf) {
+        this.copyFromBuffer(pubkeyBuf, publicKeyScratch)
+        this.copyFromBuffer(tweakBuf, tweakScratch)
+
+        if (this.s._secp256k1_ec_pubkey_tweak_mul(this.ctx, publicKeyScratch, tweakScratch) !== 1) {
+          return false
+        }
+
+        const tweakedPubkey = this.copyToBuffer(publicKeyScratch, this.pubkeyLen)
+        return tweakedPubkey
+      }
+
+      secp256k1.pubkeyNegate = function (pubkey) {
+        return this._pubkeyNegate(Buffer.from(pubkey))
+      }
+
+      secp256k1._pubkeyNegate = function (pubkeyBuf) {
+        this.copyFromBuffer(pubkeyBuf, publicKeyScratch)
+
+        this.s._secp256k1_ec_pubkey_negate(this.ctx, publicKeyScratch)
+
+        const negatedPubkey = this.copyToBuffer(publicKeyScratch, this.pubkeyLen)
+        return negatedPubkey
       }
 
       secp256k1.verify = function (msg, sig, pubkey) {
@@ -234,16 +335,13 @@ module.exports = function () {
         if (isBuffer(pubkeyBuf) !== true || pubkeyBuf.length !== 64) {
           return false
         }
-        let empty = Buffer.from([])
-        let sigData = this.malloc(sigBuf, this.rawSigLen)
-        let sig = this.malloc(empty, this.rawSigLen)
-        let pubkey = this.malloc(pubkeyBuf, this.pubkeyLen)
-        let msg = this.malloc(msgBuf, this.msgLen)
+        this.copyFromBuffer(sigBuf, signatureDataScratch)
+        this.copyFromBuffer(pubkeyBuf, publicKeyScratch)
+        this.copyFromBuffer(msgBuf, messageScratch)
         let isValid = false
-        if (this.s._secp256k1_ecdsa_signature_parse_compact(this.ctx, sig, sigData) === 1) {
-          isValid = this.s._secp256k1_ecdsa_verify(this.ctx, sig, msg, pubkey) === 1
+        if (this.s._secp256k1_ecdsa_signature_parse_compact(this.ctx, signatureScratch, signatureDataScratch) === 1) {
+          isValid = this.s._secp256k1_ecdsa_verify(this.ctx, signatureScratch, messageScratch, publicKeyScratch) === 1
         }
-        this.cleanUp(sigData, sig, pubkey, msg)
         return isValid
       }
 
@@ -261,21 +359,18 @@ module.exports = function () {
         if (typeof recid !== 'number' || recid > 1 || recid < 0) {
           return false
         }
-        let empty = Buffer.from([])
-        let msg = this.malloc(msgBuf, this.msgLen)
-        let sigData = this.malloc(sigBuf, this.rawSigLen)
-        let sig = this.malloc(empty, this.rawSigLen)
-        let pubkey = this.malloc(empty, this.pubkeyLen)
-        if (this.s._secp256k1_ecdsa_recoverable_signature_parse_compact(this.ctx, sig, sigData, recid) !== 1) {
-          this.cleanUp(msg, sigData, sig, pubkey)
+        this.copyFromBuffer(msgBuf, messageScratch)
+        this.copyFromBuffer(sigBuf, signatureDataScratch)
+
+        if (this.s._secp256k1_ecdsa_recoverable_signature_parse_compact(this.ctx, signatureScratch, signatureDataScratch, recid) !== 1) {
           return false
         }
-        if (this.s._secp256k1_ecdsa_recover(this.ctx, pubkey, sig, msg) !== 1) {
-          this.cleanUp(msg, sigData, sig, pubkey)
+
+        if (this.s._secp256k1_ecdsa_recover(this.ctx, publicKeyScratch, signatureScratch, messageScratch) !== 1) {
           return false
         }
-        let pb = this.copyToBuffer(pubkey, this.pubkeyLen)
-        this.cleanUp(msg, sigData, sig, pubkey)
+
+        let pb = this.copyToBuffer(publicKeyScratch, this.pubkeyLen)
         return pb
       }
 
