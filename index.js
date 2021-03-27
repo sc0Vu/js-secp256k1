@@ -126,6 +126,38 @@ module.exports = function () {
         }
       }
 
+      secp256k1.combinePubkeys = function(pubkeyArr) {
+        return this._combinePubkeys(pubkeyArr.map(Buffer.from))
+      }
+
+      secp256k1._combinePubkeys = function(pubkeyBufArr) {
+        const concatBuffer = Buffer.alloc(pubkeyBufArr.length * 65, 0)
+        pubkeyBufArr.forEach((pubkeyBuf, idx) => {
+          pubkeyBuf.copy(concatBuffer, idx * 65)
+        })
+
+        const concatBufferPtr = this.malloc(concatBuffer, concatBuffer.length)
+
+        const pubkeyPtrs = []
+        for (let idx = 0; idx < pubkeyBufArr.length; idx++) {
+          pubkeyPtrs.push(concatBufferPtr + idx * 65);
+        }
+        const pubkeyPtrArrPtr = this.malloc(Buffer.from([]), pubkeyBufArr.length * 4)
+        this.s.HEAP32.set(pubkeyPtrs, pubkeyPtrArrPtr >> 2)
+
+        const empty = Buffer.from([])
+        const pubkey = this.malloc(empty, this.pubkeyLen)
+
+        if(this.s._secp256k1_ec_pubkey_combine(this.ctx, pubkey, pubkeyPtrArrPtr, pubkeyBufArr.length) !== 1) {
+          this.cleanUp(concatBufferPtr, pubkeyPtrArrPtr, pubkey)
+          return false
+        }
+
+        const pb = this.copyToBuffer(pubkey, this.pubkeyLen)
+        this.cleanUp(concatBufferPtr, pubkeyPtrArrPtr, pubkey)
+        return pb
+      }
+
       secp256k1.serializePubkey = function (pubkey, compressed) {
         return this._serializePubkey(Buffer.from(pubkey), compressed)
       }
@@ -144,6 +176,24 @@ module.exports = function () {
         let pc = this.copyToBuffer(spubkey, pubLen)
         this.cleanUp(pubkey, spubkey, spubkeyLen)
         return pc
+      }
+
+      secp256k1.privkeyAddTweak = function (privkey, tweak) {
+        return this._privkeyAddTweak(Buffer.from(privkey), Buffer.from(tweak))
+      }
+
+      secp256k1._privkeyAddTweak = function (privkeyBuf, tweakBuf) {
+        const privkey = this.malloc(privkeyBuf, this.privkeyLen)
+        const tweakPtr = this.malloc(tweakBuf, this.privkeyLen)
+
+        if (this.s._secp256k1_ec_seckey_tweak_add(this.ctx, privkey, tweakPtr) !== 1) {
+          this.cleanUp(privkey, tweakPtr)
+          return false
+        }
+
+        const tweakedPrivkey = this.copyToBuffer(privkey, this.privkeyLen)
+        this.cleanUp(privkey, tweakPtr)
+        return tweakedPrivkey
       }
 
       secp256k1.privkeyToPubkey = function (privkey) {

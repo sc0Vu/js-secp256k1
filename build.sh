@@ -1,3 +1,5 @@
+#!/bin/bash
+
 SECP256K1_DIR=./secp256k1
 
 cd $SECP256K1_DIR
@@ -6,7 +8,7 @@ cd $SECP256K1_DIR
 sh autogen.sh
 
 # configure secp256k1
-emconfigure ./configure --enable-module-recovery --no-entry
+emconfigure ./configure --enable-module-recovery
 
 # make secp256k1
 emmake make
@@ -31,7 +33,24 @@ EMCC_WEB_OPTIONS=(
 
 EMCC_SECP256K1_OPTIONS=(
     -s LINKABLE=1
-    -s EXPORTED_FUNCTIONS="['_malloc', '_free', '_secp256k1_ec_pubkey_create', '_secp256k1_context_create', '_secp256k1_context_destroy', '_secp256k1_ecdsa_recoverable_signature_parse_compact', '_secp256k1_ecdsa_recover', '_secp256k1_ec_pubkey_serialize', '_secp256k1_ecdsa_signature_parse_compact', '_secp256k1_ec_pubkey_parse', '_secp256k1_ecdsa_verify', '_secp256k1_ecdsa_sign_recoverable', '_secp256k1_ec_seckey_verify', '_secp256k1_ecdsa_recoverable_signature_serialize_compact']"
+    -s EXPORTED_FUNCTIONS="[ \
+        '_secp256k1_context_create', \
+        '_secp256k1_context_destroy', \
+        '_secp256k1_ec_pubkey_create', \
+        '_secp256k1_ec_pubkey_combine', \
+        '_secp256k1_ec_pubkey_parse', \
+        '_secp256k1_ec_pubkey_serialize', \
+        '_secp256k1_ec_seckey_tweak_add', \
+        '_secp256k1_ec_seckey_verify', \
+        '_secp256k1_ecdsa_recover', \
+        '_secp256k1_ecdsa_recoverable_signature_parse_compact', \
+        '_secp256k1_ecdsa_recoverable_signature_serialize_compact', \
+        '_secp256k1_ecdsa_sign_recoverable', \
+        '_secp256k1_ecdsa_signature_parse_compact', \
+        '_secp256k1_ecdsa_verify', \
+        '_free', \
+        '_malloc' \
+    ]"
     -s EXPORTED_RUNTIME_METHODS='["getValue"]'
 )
 
