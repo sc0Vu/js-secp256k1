@@ -1,5 +1,5 @@
 # js-secp256k1
-[![Build Status](https://travis-ci.org/sc0Vu/js-secp256k1.svg?branch=master)](https://travis-ci.org/sc0Vu/js-secp256k1)
+[![CI](https://github.com/sc0Vu/js-secp256k1/actions/workflows/ci.yml/badge.svg)](https://github.com/sc0Vu/js-secp256k1/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/sc0Vu/js-secp256k1/branch/master/graph/badge.svg)](https://codecov.io/gh/sc0Vu/js-secp256k1)
 
 Compiled webassembly of bitcoin secp256k1

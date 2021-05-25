@@ -1,0 +1,25 @@
+name: CI 
+
+on: ["push", "pull_request"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: "Install geckodriver and test"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 12
+      - run: |
+          wget https://github.com/mozilla/geckodriver/releases/download/v0.29.1/geckodriver-v0.29.1-linux32.tar.gz
+          tar -xvzf geckodriver-v0.29.1-linux32.tar.gz
+          chmod +x geckodriver
+          echo "PATH=$PWD:$PATH" >> $GITHUB_ENV
+          which geckodriver
+          npm install
+          npm test
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
