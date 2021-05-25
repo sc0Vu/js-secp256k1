@@ -11,6 +11,7 @@
         .then(function (secp256k1) {
           window.secp256k1 = secp256k1
           var privkey = new Uint8Array([70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70])
+          var privkey2 = new Uint8Array([71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71,71])
           var msg = new Uint8Array([218,245,167,121,174,151,47,151,33,151,48,61,123,87,71,70,199,239,131,234,218,192,242,121,26,210,61,185,46,76,142,83])
           var sig1 = secp256k1.sign(msg, privkey)
           var ec = new elliptic.ec('secp256k1')
@@ -57,6 +58,21 @@
           for (let i=0; i<pubkey.length; i++) {
             if (pubkey[i] !== pubkey2[i]) {
               throw new Error('cannot recover public key')
+            }
+          }
+
+          {
+            const pubkey = secp256k1.privkeyToPubkey(privkey)
+            const pubkey2 = secp256k1.privkeyToPubkey(privkey2)
+
+            const privkeyAdded = secp256k1.privkeyAddTweak(privkey, privkey2)
+            const pubkeyCombined = secp256k1.combinePubkeys([pubkey, pubkey2])
+            const pubkeyPrivAdded = secp256k1.privkeyToPubkey(privkeyAdded)
+
+            for (let i=0; i<pubkeyCombined.length; i++) {
+              if (pubkeyCombined[i] !== pubkeyPrivAdded[i]) {
+                throw new Error('Incorrect pubkey combine')
+              }
             }
           }
         })

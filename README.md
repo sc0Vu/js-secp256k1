@@ -17,7 +17,7 @@ $ npm install js-secp256k1
 You can build secp256k1 wasm yourself with emscripten. We build two version of secp256k1 - node and web. The only difference is that there is no file system in web version.
 
 ```BASH
-$ sh build.sh
+$ ./build.sh
 ```
 
 After build wasm files, you should build javascript library again.

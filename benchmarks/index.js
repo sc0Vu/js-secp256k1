@@ -46,6 +46,7 @@ secp256k1Async().then(function (secp256k1Wasm) {
 
     new benchmark.Suite('Verify')
       .add('Secp256k1 WASM (current)', () => secp256k1Wasm.verify(msg, sig.signature, pubkey))
+      .add('Secp256k1 0.2.1 WASM (current)', () => secp256k121Wasm.verify(msg, sig.signature, pubkey))
       .add('GYP Binding (secp256k1)', () => obindings.verify(msg, sig.signature, cpubkey))
       .add('Pure JS (elliptic)', () => ecprivkey.verify(msg, sig2))
       .on('cycle', (event) => {
